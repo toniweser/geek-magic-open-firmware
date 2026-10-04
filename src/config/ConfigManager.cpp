@@ -66,6 +66,17 @@ auto ConfigManager::load() -> bool {
     String password = doc["wifi_password"] | "";
     String api_token = doc["api_token"] | "";
     String ntp_server_cfg = doc["ntp_server"] | "";
+    this->daytime_mode = doc["daytime_mode"] | daytime_mode;
+    this->latitude = doc["latitude"] | latitude;
+    this->longitude = doc["longitude"] | longitude;
+    String timezone_cfg = doc["timezone"] | "";
+    if (timezone_cfg.length() != 0) {
+        this->timezone = timezone_cfg.c_str();
+    }
+    this->scene_morning = doc["scene_morning"] | scene_morning.c_str();
+    this->scene_day = doc["scene_day"] | scene_day.c_str();
+    this->scene_evening = doc["scene_evening"] | scene_evening.c_str();
+    this->scene_night = doc["scene_night"] | scene_night.c_str();
     String animation_file_cfg = doc["animation_file"] | "";
     if (animation_file_cfg.length() != 0) {
         this->animation_file = animation_file_cfg.c_str();
@@ -209,6 +220,14 @@ auto ConfigManager::save() -> bool {
         doc["ntp_server"] = this->ntp_server.c_str();
     }
     doc["animation_file"] = this->animation_file.c_str();
+    doc["daytime_mode"] = this->daytime_mode;
+    doc["latitude"] = this->latitude;
+    doc["longitude"] = this->longitude;
+    doc["timezone"] = this->timezone.c_str();
+    doc["scene_morning"] = this->scene_morning.c_str();
+    doc["scene_day"] = this->scene_day.c_str();
+    doc["scene_evening"] = this->scene_evening.c_str();
+    doc["scene_night"] = this->scene_night.c_str();
 
     if (serializeJson(doc, file) == 0) {
         Logger::error("Failed to write config file", "ConfigManager");

@@ -2,7 +2,6 @@
 #include "display/screens/AnimationScreen.h"
 
 #include <Logger.h>
-#include <array>
 #include <cstring>
 
 #include "config/ConfigManager.h"
@@ -14,6 +13,7 @@ constexpr const char* TAG = "Animation";
 constexpr size_t HEADER_SIZE = 16;
 constexpr size_t MAX_FRAME_BYTES = 8192;
 constexpr unsigned long MAX_LAG_MS = 500;
+constexpr uint8_t FLAG_RLE = 0x01;
 
 auto readU16(const uint8_t* p) -> uint16_t { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
 
@@ -37,8 +37,14 @@ auto AnimationScreen::open() -> bool {
     }
 
     std::array<uint8_t, HEADER_SIZE> hdr{};
-    if (_file.read(hdr.data(), hdr.size()) != hdr.size() || memcmp(hdr.data(), "PXA1", 4) != 0) {
-        _error = "not a PXA1 file";
+    if (_file.read(hdr.data(), hdr.size()) != hdr.size()) {
+        _error = "truncated header";
+        return false;
+    }
+    const bool v1 = memcmp(hdr.data(), "PXA1", 4) == 0;
+    const bool v2 = memcmp(hdr.data(), "PXA2", 4) == 0;
+    if (!v1 && !v2) {
+        _error = "not a PXA file";
         return false;
     }
 
@@ -49,9 +55,10 @@ auto AnimationScreen::open() -> bool {
     _frameCount = readU16(&hdr[10]);
     _bpp = hdr[12];
     _colorCount = hdr[13];
+    _rle = v2 && (hdr[14] & FLAG_RLE) != 0;
 
     if (_width == 0 || _height == 0 || _scale == 0 || _fps == 0 || _frameCount == 0 || (_bpp != 4 && _bpp != 8) ||
-        _colorCount == 0 || _width * _scale > LCD_W || _height * _scale > LCD_H) {
+        (_rle && _bpp != 8) || _colorCount == 0 || _width * _scale > LCD_W || _height * _scale > LCD_H) {
         _error = "bad header";
         return false;
     }
@@ -83,12 +90,13 @@ auto AnimationScreen::open() -> bool {
     _dataOffset = HEADER_SIZE + palBytes;
     _frameIntervalMs = 1000UL / _fps;
     _frameIndex = 0;
+    _rdPos = _rdLen = 0;
     _x0 = static_cast<int16_t>((LCD_W - _width * _scale) / 2);
     _y0 = static_cast<int16_t>((LCD_H - _height * _scale) / 2);
 
-    std::array<char, 96> msg{};
-    snprintf(msg.data(), msg.size(), "%s: %ux%u x%u, %u fps, %u frames, %u colors, %u B/frame", _path.c_str(),
-             _width, _height, _scale, _fps, _frameCount, _colorCount, static_cast<unsigned>(_frameBytes));
+    std::array<char, 112> msg{};
+    snprintf(msg.data(), msg.size(), "%s: %ux%u x%u, %u fps, %u frames, %u colors, %s", _path.c_str(), _width, _height,
+             _scale, _fps, _frameCount, _colorCount, _rle ? "rle" : "raw");
     Logger::info(msg.data(), TAG);
 
     return true;
@@ -104,12 +112,43 @@ auto AnimationScreen::close() -> void {
     _ok = false;
 }
 
+auto AnimationScreen::readByte() -> int {
+    if (_rdPos >= _rdLen) {
+        _rdLen = _file.read(_rd.data(), _rd.size());
+        _rdPos = 0;
+        if (_rdLen == 0) {
+            return -1;
+        }
+    }
+    return _rd[_rdPos++];
+}
+
+auto AnimationScreen::readRleFrame() -> bool {
+    const size_t pixels = static_cast<size_t>(_width) * _height;
+    size_t filled = 0;
+    while (filled < pixels) {
+        const int len = readByte();
+        const int idx = readByte();
+        if (len < 0 || idx < 0) {
+            return false;
+        }
+        const size_t run = static_cast<size_t>(len) + 1;
+        if (filled + run > pixels) {
+            return false;
+        }
+        memset(_frame.get() + filled, idx, run);
+        filled += run;
+    }
+    return true;
+}
+
 auto AnimationScreen::readFrame() -> bool {
     if (_frameIndex == 0) {
         _file.seek(_dataOffset, SeekSet);
+        _rdPos = _rdLen = 0;
     }
-    const size_t got = _file.read(_frame.get(), _frameBytes);
-    if (got != _frameBytes) {
+    const bool ok = _rle ? readRleFrame() : (_file.read(_frame.get(), _frameBytes) == _frameBytes);
+    if (!ok) {
         _error = "read error";
         return false;
     }

@@ -127,7 +127,7 @@ jobs:
 
       - name: Build filesystem for SmallTV Ultra
         run: |
-          cp data/config-smartTV.example data/config.json
+          cp data/config.example.json data/config.json
           pio run --target buildfs
           mv .pio/build/esp12e/littlefs.bin .pio/build/esp12e/littlefs-smartTV.bin
 

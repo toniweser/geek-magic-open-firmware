@@ -1,8 +1,21 @@
 # GeekMagic open firmware
 
-> **This fork** turns the SmallTV-Ultra into a pixel-art animation frame: a lightweight PXA animation player (the ESP8266 cannot run a GIF decoder), a bundled aquarium loop and a few memory fixes. Flashing a fresh device: see [FLASHING.md](FLASHING.md). Upstream: [Times-Z/GeekMagic-Open-Firmware](https://github.com/Times-Z/GeekMagic-Open-Firmware).
+> **This fork** turns the SmallTV-Ultra into a pixel-art aquarium that follows the sun.
 
-<p align="center"><img src="docs/aquarium.gif" width="240" height="240" alt="Aquarium animation running on the SmallTV-Ultra, 240 by 240 pixels"></p>
+<p align="center">
+  <img src="docs/morning.gif" width="180" height="180" alt="Morning scene: sunrise colours with light rays">
+  <img src="docs/day.gif" width="180" height="180" alt="Day scene: bright turquoise water with shimmering light">
+  <img src="docs/evening.gif" width="180" height="180" alt="Evening scene: orange and violet dusk with slow fish">
+  <img src="docs/night.gif" width="180" height="180" alt="Night scene: dark water, fish resting on the sand, plankton">
+</p>
+<p align="center"><sub>Morning · Day · Evening · Night, as rendered for the 240 × 240 display</sub></p>
+
+- Four scenes switch with the part of the day at your location: sunrise, day, dusk and night. Dawn, sunrise, sunset and dusk are computed on the device, no server involved.
+- Animations use PXA, a small run-length encoded format with a palette and raw frames. The ESP8266 has about 25 KB of free RAM, far too little for a GIF decoder, so this player needs about 6 KB instead.
+- Make your own animations with `tools/pxa.py`: it renders the bundled scenes, converts small GIFs and renders a `.pxa` back to GIF for checking.
+- Everything is configured in `config.json`: API token, location, timezone, which file plays in which phase. Switch scenes or files at runtime through `POST /api/v1/screen`.
+- Flashing works over WiFi from the stock firmware, no cables. Step by step in [FLASHING.md](FLASHING.md), including rescue mode if something goes wrong.
+- Based on [Times-Z/GeekMagic-Open-Firmware](https://github.com/Times-Z/GeekMagic-Open-Firmware), which provides WiFi setup, OTA updates, the web UI and the rescue mode. Its original documentation follows below.
 
 --- 
 

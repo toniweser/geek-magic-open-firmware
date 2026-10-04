@@ -20,13 +20,21 @@ build the filesystem image. Results:
 - `.pio/build/esp12e/firmware.bin`
 - `.pio/build/esp12e/littlefs.bin` (web UI, config, the aquarium animation)
 
-Before building the filesystem image, copy `data/config-smartTV.example` to
-`data/config.json` and set:
+Before building the filesystem image, copy `data/config.example.json` to
+`data/config.json` and fill it in. `data/config.json` is git-ignored because
+it holds the token. Every key is optional; a missing key takes the default.
 
-- `api_token`: any long random string, e.g. `openssl rand -hex 24`
-- `animation_file`: the animation shown after boot, `aquarium.pxa` is bundled
-
-`data/config.json` is git-ignored because it holds the token.
+| Key | Default | Meaning |
+|---|---|---|
+| `api_token` | placeholder | Bearer token for the API. Any long random string, e.g. `openssl rand -hex 24`. Moved into secure storage on first boot and removed from the file. |
+| `wifi_ssid`, `wifi_password` | empty | Optional. Leave empty and configure WiFi in the web UI later, or fill in to skip that step. Moved into secure storage on first boot. |
+| `lcd_rotation` | `0` | Display rotation 0–7 (4–7 mirrored). `0` is right for the SmallTV-Ultra. |
+| `daytime_mode` | `true` | `true` follows the sun with the four scene files, `false` plays `animation_file` only. |
+| `latitude`, `longitude` | Fürth, Germany | Your location in decimal degrees, used for sunrise and sunset. |
+| `timezone` | `CET-1CEST,M3.5.0,M10.5.0/3` | POSIX TZ string for local time. Central Europe is the default; look up other zones in the [TZ string list](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv). |
+| `scene_morning`, `scene_day`, `scene_evening`, `scene_night` | `morning.pxa` … `night.pxa` | File in `data/gif/` for each part of the day. Morning runs from civil dawn to two hours after sunrise, evening from two hours before sunset to civil dusk, night in between. |
+| `animation_file` | `day.pxa` | File played when `daytime_mode` is `false`. |
+| `ntp_server` | pool.ntp.org | Optional NTP server override. |
 
 ## 2. Flash the firmware through the stock firmware
 

@@ -62,7 +62,27 @@ class ConfigManager {
     SecureStorage secure;
     uint8_t lcd_rotation = 4;
     std::string ntp_server;
-    std::string animation_file = "aquarium.pxa";  // file name inside /gif, shown after boot
+    std::string animation_file = "day.pxa";  // file name inside /gif, shown when daytime_mode is off
+
+    // Scenes follow the sun: civil dawn/dusk and sunrise/sunset for the location below
+    bool daytime_mode = true;
+    float latitude = 49.4771F;   // Fürth
+    float longitude = 10.9887F;
+    std::string timezone = "CET-1CEST,M3.5.0,M10.5.0/3";  // POSIX TZ string
+    std::string scene_morning = "morning.pxa";
+    std::string scene_day = "day.pxa";
+    std::string scene_evening = "evening.pxa";
+    std::string scene_night = "night.pxa";
+
+    bool getDaytimeMode() const { return daytime_mode; }
+    void setDaytimeMode(bool on) { daytime_mode = on; }
+    float getLatitude() const { return latitude; }
+    float getLongitude() const { return longitude; }
+    const char* getTimezone() const { return timezone.c_str(); }
+    const char* getSceneMorning() const { return scene_morning.c_str(); }
+    const char* getSceneDay() const { return scene_day.c_str(); }
+    const char* getSceneEvening() const { return scene_evening.c_str(); }
+    const char* getSceneNight() const { return scene_night.c_str(); }
 
     const char* getAnimationFile() const { return animation_file.c_str(); }
     void setAnimationFile(const char* name) {

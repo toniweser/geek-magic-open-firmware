@@ -27,6 +27,7 @@
 #include "display/DisplayManager.h"
 #include "display/ScreenManager.h"
 #include "display/screens/AnimationScreen.h"
+#include "daytime/DaytimeScheduler.h"
 #include "project_version.h"
 #include <AnimatedGIF.h>
 
@@ -729,6 +730,18 @@ static void sendScreenJson(Webserver* webserver, int httpCode, const char* error
     }
     doc["animationFile"] = animationScreen.file();
     doc["startFile"] = configManager.getAnimationFile();
+    doc["daytime"] = DaytimeScheduler::enabled();
+    doc["demoSeconds"] = DaytimeScheduler::demoIntervalMs() / 1000;
+    doc["timeSynced"] = DaytimeScheduler::timeSynced();
+    doc["phase"] = SunPhase::name(DaytimeScheduler::phase());
+    const SunPhase::Times& sun = DaytimeScheduler::times();
+    if (sun.valid) {
+        JsonObject s = doc["sun"].to<JsonObject>();
+        s["dawn"] = sun.dawn;
+        s["sunrise"] = sun.sunrise;
+        s["sunset"] = sun.sunset;
+        s["dusk"] = sun.dusk;
+    }
     if (animationScreen.lastError().length() != 0) {
         doc["animationError"] = animationScreen.lastError();
     }
@@ -777,6 +790,20 @@ void handleScreenSet(Webserver* webserver) {
         return;
     }
 
+    // {"demo": seconds} cycles through the four scenes for testing, 0 stops the demo
+    if (doc["demo"].is<int>()) {
+        DaytimeScheduler::setDemo(static_cast<unsigned long>(doc["demo"].as<int>()) * 1000UL);
+    }
+
+    // {"daytime": true|false} switches between sun-driven scenes and a fixed file
+    if (doc["daytime"].is<bool>()) {
+        const bool on = doc["daytime"].as<bool>();
+        DaytimeScheduler::setEnabled(on);
+        if (doc["persist"] | false) {
+            configManager.setDaytimeMode(on);
+        }
+    }
+
     if (target == &animationScreen) {
         String file = doc["file"] | "";
         if (file.length() != 0) {
@@ -789,6 +816,7 @@ void handleScreenSet(Webserver* webserver) {
                 return;
             }
             animationScreen.setFile(path);
+            DaytimeScheduler::setEnabled(false);  // a chosen file wins until daytime is enabled again
         } else if (animationScreen.file().length() == 0) {
             sendScreenJson(webserver, HTTP_CODE_BAD_REQUEST, "file required");
             return;
@@ -798,10 +826,13 @@ void handleScreenSet(Webserver* webserver) {
     DisplayManager::stopGif();
     ScreenManager::show(target);
 
-    // {"persist": true} makes this animation the one shown after the next boot
-    if ((doc["persist"] | false) && target == &animationScreen) {
-        String file = animationScreen.file();
-        configManager.setAnimationFile(file.substring(file.lastIndexOf('/') + 1).c_str());
+    // {"persist": true} stores the choice (file and/or daytime flag) for the next boot
+    if (doc["persist"] | false) {
+        if (target == &animationScreen && !DaytimeScheduler::enabled()) {
+            String file = animationScreen.file();
+            configManager.setAnimationFile(file.substring(file.lastIndexOf('/') + 1).c_str());
+            configManager.setDaytimeMode(false);
+        }
         if (!configManager.save()) {
             sendScreenJson(webserver, HTTP_CODE_INTERNAL_ERROR, "screen switched but config not saved");
             return;
