@@ -28,6 +28,8 @@
 #include "config/ConfigManager.h"
 #include "wireless/WiFiManager.h"
 #include "display/DisplayManager.h"
+#include "display/ScreenManager.h"
+#include "display/screens/AnimationScreen.h"
 #include "web/Webserver.h"
 #include "web/Api.h"
 #include "ntp/NTPClient.h"
@@ -53,6 +55,7 @@ static constexpr int LOADING_DELAY_MS = 1000;
 
 Webserver* webserver = nullptr;
 NTPClient* ntpClient = nullptr;
+AnimationScreen animationScreen;  // reached from the API to select a file
 
 /**
  * @brief Formats bytes into a human-readable string
@@ -174,6 +177,11 @@ void setup() {
     delay(LOADING_DELAY_MS);
 
     DisplayManager::drawStartup(wifiManager->getIP().toString());
+    delay(LOADING_DELAY_MS);
+
+    animationScreen.setFile(String("/gif/") + configManager.getAnimationFile());
+    ScreenManager::registerScreen(&animationScreen);
+    ScreenManager::begin(&animationScreen);
 
     // enable watchdog before going to loop()
     // 2 seconds should be way more than the main loop needs to do stuff
@@ -201,6 +209,7 @@ void loop() {
     }
 
     DisplayManager::update();
+    ScreenManager::loop();
 
     static unsigned long last_free_heap_log = 0;
     static constexpr unsigned long FREE_HEAP_LOG_INTERVAL_MS = 10000UL;

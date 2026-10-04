@@ -25,6 +25,10 @@
 #include "web/Webserver.h"
 #include "web/Api.h"
 #include "display/DisplayManager.h"
+#include "display/ScreenManager.h"
+#include "display/screens/AnimationScreen.h"
+#include "project_version.h"
+#include <AnimatedGIF.h>
 
 #include "config/ConfigManager.h"
 #include "wireless/WiFiManager.h"
@@ -81,6 +85,19 @@ void registerApiEndpoints(Webserver* webserver) {
     // @openapi {post} /ntp/sync version=v1 group=NTP summary="Trigger NTP sync" requiresAuth=true
     // responses=200:application/json,401:application/json
     webserver->raw().on("/api/v1/ntp/sync", HTTP_POST, [webserver]() { handleNtpSync(webserver); });
+
+    // @openapi {get} /screen version=v1 group=Screen summary="Active screen and available screens" requiresAuth=true
+    // responses=200:application/json,401:application/json
+    webserver->raw().on("/api/v1/screen", HTTP_GET, [webserver]() { handleScreenGet(webserver); });
+
+    // @openapi {post} /screen version=v1 group=Screen summary="Switch screen" requiresAuth=true
+    // requestBody=application/json requestBodySchema=name:string,file:string,persist:boolean example={"name":"animation","file":"aquarium.pxa"}
+    // responses=200:application/json,400:application/json,401:application/json,404:application/json
+    webserver->raw().on("/api/v1/screen", HTTP_POST, [webserver]() { handleScreenSet(webserver); });
+
+    // @openapi {get} /system/info version=v1 group=System summary="Heap, uptime and reset reason" requiresAuth=true
+    // responses=200:application/json,401:application/json
+    webserver->raw().on("/api/v1/system/info", HTTP_GET, [webserver]() { handleSystemInfo(webserver); });
 
     // @openapi {get} /ntp/status version=v1 group=NTP summary="Get NTP status" requiresAuth=true
     // responses=200:application/json,401:application/json
@@ -201,6 +218,12 @@ void setCorsHeaders(Webserver* webserver) {
  * @return true if token is valid false otherwise
  */
 static auto validateBearerToken(Webserver* webserver) -> bool {
+    // Setup mode: no token provisioned yet (empty NVS), so allow access until
+    // the config.json migration stores one. Becomes a no-op afterwards.
+    if (String(configManager.getApiToken()).length() == 0) {
+        return true;
+    }
+
     if (!webserver->raw().hasHeader("Authorization")) {
         return false;
     }
@@ -513,6 +536,9 @@ void handleGifUploadEnd(const String& currentFilename, File& gifFile) {
         gifFile.close();
     }
 
+    // The upload may have replaced the file the animation screen is playing; reopen it
+    ScreenManager::invalidate();
+
     Logger::info((String("Gif upload end: ") + currentFilename).c_str(), "API::GIF");
 }
 
@@ -682,6 +708,124 @@ void handleNtpSync(Webserver* webserver) {
     doc["status"] = syncOk ? "ok" : "error";
     doc["lastStatus"] = ntpClient->lastStatus();
     doc["lastSyncTime"] = ntpClient->lastSyncTime();
+
+    String json;
+    serializeJson(doc, json);
+
+    setCorsHeaders(webserver);
+    webserver->raw().send(HTTP_CODE_OK, "application/json", json);
+}
+
+extern AnimationScreen animationScreen;
+
+static void sendScreenJson(Webserver* webserver, int httpCode, const char* error = nullptr) {
+    JsonDocument doc;
+    Screen* active = ScreenManager::active();
+
+    doc["active"] = (active != nullptr) ? active->name() : "";
+    JsonArray names = doc["screens"].to<JsonArray>();
+    for (size_t i = 0; i < ScreenManager::screenCount(); i++) {
+        names.add(ScreenManager::screens().at(i)->name());
+    }
+    doc["animationFile"] = animationScreen.file();
+    doc["startFile"] = configManager.getAnimationFile();
+    if (animationScreen.lastError().length() != 0) {
+        doc["animationError"] = animationScreen.lastError();
+    }
+    if (error != nullptr) {
+        doc["status"] = "error";
+        doc["message"] = error;
+    } else {
+        doc["status"] = "ok";
+    }
+
+    String json;
+    serializeJson(doc, json);
+
+    setCorsHeaders(webserver);
+    webserver->raw().send(httpCode, "application/json", json);
+}
+
+/**
+ * @brief Report the active screen and the registered ones
+ */
+void handleScreenGet(Webserver* webserver) {
+    if (!requireBearerToken(webserver)) {
+        return;
+    }
+    sendScreenJson(webserver, HTTP_CODE_OK);
+}
+
+/**
+ * @brief Switch screens: {"name":"animation","file":"aquarium.pxa","persist":true}
+ */
+void handleScreenSet(Webserver* webserver) {
+    if (!requireBearerToken(webserver)) {
+        return;
+    }
+
+    JsonDocument doc;
+    if (deserializeJson(doc, webserver->raw().arg("plain"))) {
+        sendScreenJson(webserver, HTTP_CODE_BAD_REQUEST, "invalid json");
+        return;
+    }
+
+    const char* name = doc["name"] | "";
+    Screen* target = ScreenManager::find(name);
+    if (target == nullptr) {
+        sendScreenJson(webserver, HTTP_CODE_NOT_FOUND, "unknown screen");
+        return;
+    }
+
+    if (target == &animationScreen) {
+        String file = doc["file"] | "";
+        if (file.length() != 0) {
+            file.replace("\\", "/");
+            file = file.substring(file.lastIndexOf('/') + 1);
+            // the upload stores to /gif, the upstream GIF player also checks /gifs
+            String path = LittleFS.exists("/gifs/" + file) ? "/gifs/" + file : "/gif/" + file;
+            if (!LittleFS.exists(path)) {
+                sendScreenJson(webserver, HTTP_CODE_NOT_FOUND, "file not found");
+                return;
+            }
+            animationScreen.setFile(path);
+        } else if (animationScreen.file().length() == 0) {
+            sendScreenJson(webserver, HTTP_CODE_BAD_REQUEST, "file required");
+            return;
+        }
+    }
+
+    DisplayManager::stopGif();
+    ScreenManager::show(target);
+
+    // {"persist": true} makes this animation the one shown after the next boot
+    if ((doc["persist"] | false) && target == &animationScreen) {
+        String file = animationScreen.file();
+        configManager.setAnimationFile(file.substring(file.lastIndexOf('/') + 1).c_str());
+        if (!configManager.save()) {
+            sendScreenJson(webserver, HTTP_CODE_INTERNAL_ERROR, "screen switched but config not saved");
+            return;
+        }
+    }
+    sendScreenJson(webserver, HTTP_CODE_OK);
+}
+
+/**
+ * @brief Memory and uptime figures, mainly to watch the heap during development
+ */
+void handleSystemInfo(Webserver* webserver) {
+    if (!requireBearerToken(webserver)) {
+        return;
+    }
+
+    JsonDocument doc;
+    doc["freeHeap"] = ESP.getFreeHeap();            // NOLINT(readability-static-accessed-through-instance)
+    doc["maxFreeBlock"] = ESP.getMaxFreeBlockSize();  // NOLINT(readability-static-accessed-through-instance)
+    doc["heapFragmentation"] = ESP.getHeapFragmentation();  // NOLINT(readability-static-accessed-through-instance)
+    doc["uptimeMs"] = millis();
+    doc["resetReason"] = ESP.getResetReason();  // NOLINT(readability-static-accessed-through-instance)
+    doc["gifDecoderBytes"] = sizeof(AnimatedGIF);
+    doc["firmware"] = PROJECT_VER_STR;
 
     String json;
     serializeJson(doc, json);
@@ -915,6 +1059,7 @@ void handleDisplayRotationSet(Webserver* webserver) {
     }
 
     DisplayManager::setRotation(newRotation, currentIP);
+    ScreenManager::invalidate();
 
     if (!configManager.save()) {
         JsonDocument doc;
@@ -1135,6 +1280,7 @@ void handleStopGif(Webserver* webserver) {
     JsonDocument resp;
 
     const bool stopped = DisplayManager::stopGif();
+    ScreenManager::invalidate();
 
     resp["status"] = stopped ? "stopped" : "error";
 

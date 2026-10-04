@@ -66,6 +66,10 @@ auto ConfigManager::load() -> bool {
     String password = doc["wifi_password"] | "";
     String api_token = doc["api_token"] | "";
     String ntp_server_cfg = doc["ntp_server"] | "";
+    String animation_file_cfg = doc["animation_file"] | "";
+    if (animation_file_cfg.length() != 0) {
+        this->animation_file = animation_file_cfg.c_str();
+    }
 
     this->lcd_rotation = doc["lcd_rotation"] | lcd_rotation;
 
@@ -204,6 +208,7 @@ auto ConfigManager::save() -> bool {
     if (!this->ntp_server.empty()) {
         doc["ntp_server"] = this->ntp_server.c_str();
     }
+    doc["animation_file"] = this->animation_file.c_str();
 
     if (serializeJson(doc, file) == 0) {
         Logger::error("Failed to write config file", "ConfigManager");

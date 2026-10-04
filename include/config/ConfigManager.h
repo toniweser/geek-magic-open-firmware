@@ -62,6 +62,12 @@ class ConfigManager {
     SecureStorage secure;
     uint8_t lcd_rotation = 4;
     std::string ntp_server;
+    std::string animation_file = "aquarium.pxa";  // file name inside /gif, shown after boot
+
+    const char* getAnimationFile() const { return animation_file.c_str(); }
+    void setAnimationFile(const char* name) {
+        if (name && *name) animation_file = name;
+    }
 
     const char* getNtpServer() const { return ntp_server.c_str(); }
     void setNtpServer(const char* s) {

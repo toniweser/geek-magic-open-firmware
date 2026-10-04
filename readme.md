@@ -1,5 +1,7 @@
 # Geekmagic open firmware
 
+> **This fork** turns the SmallTV-Ultra into a pixel-art animation frame: a lightweight PXA animation player (the ESP8266 cannot run a GIF decoder), a bundled aquarium loop and a few memory fixes. Flashing a fresh device: see [FLASHING.md](FLASHING.md). Upstream: [Times-Z/GeekMagic-Open-Firmware](https://github.com/Times-Z/GeekMagic-Open-Firmware).
+
 > This repo documents the LCD interface inside the **HelloCubic Lite** cube (ESP8266) from [GeekMagicClock](https://github.com/GeekMagicClock/HelloCubic-Lite)
 
 > It also comptabile with the **Smalltv-Ultra** from [GeekMagicClock](https://github.com/GeekMagicClock/smalltv-ultra)

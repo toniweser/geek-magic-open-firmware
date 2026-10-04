@@ -729,3 +729,5 @@ auto DisplayManager::update() -> void {
  * @return void
  */
 auto DisplayManager::clearScreen() -> void { g_lcd.fillScreen(LCD_BLACK); }
+
+auto DisplayManager::isGifPlaying() -> bool { return g_gif != nullptr && g_gif->isPlaying(); }

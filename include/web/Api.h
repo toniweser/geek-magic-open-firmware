@@ -41,6 +41,9 @@ void handleWifiStatus(Webserver* webserver);
 
 void handleNtpSync(Webserver* webserver);
 void handleNtpStatus(Webserver* webserver);
+void handleScreenGet(Webserver* webserver);
+void handleScreenSet(Webserver* webserver);
+void handleSystemInfo(Webserver* webserver);
 void handleNtpConfigGet(Webserver* webserver);
 void handleNtpConfigSet(Webserver* webserver);
 void handleDisplayRotationGet(Webserver* webserver);
