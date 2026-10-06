@@ -8,7 +8,13 @@
   <img src="docs/evening.gif" width="180" height="180" alt="Evening scene: orange and violet dusk with slow fish">
   <img src="docs/night.gif" width="180" height="180" alt="Night scene: dark water, fish resting on the sand, plankton">
 </p>
-<p align="center"><sub>Morning · Day · Evening · Night, as rendered for the 240 × 240 display</sub></p>
+<p align="center"><sub>Morning, day, evening and night, picked by sunrise and sunset at your location.</sub></p>
+
+<p align="center">
+  <img src="docs/rain.gif" width="180" height="180" alt="Rain over the day scene: dark cloud bank and falling drops">
+  <img src="docs/fog.gif" width="180" height="180" alt="Fog over the morning scene: a grey fog band at the surface and a lighthouse sweeping its beam">
+</p>
+<p align="center"><sub>The same scenes with the current weather at your location, here rain and fog.</sub></p>
 
 - Four scenes switch with the part of the day at your location: sunrise, day, dusk and night. Dawn, sunrise, sunset and dusk are computed on the device, no server involved.
 - The current weather shows up in the scene: a cloud bank drifts over the surface, rain falls, snow covers the sand and a snowman appears, fog brings a lighthouse, thunder flashes, and clear nights have stars. Fetched from Open-Meteo every 15 minutes, drawn as a few hundred pixels over the animation, no extra files.
