@@ -74,6 +74,9 @@ class ConfigManager {
     std::string scene_evening = "evening.pxa";
     std::string scene_night = "night.pxa";
 
+    bool weather_mode = true;  // fetch Open-Meteo and draw the weather layer
+    bool getWeatherMode() const { return weather_mode; }
+    void setWeatherMode(bool on) { weather_mode = on; }
     bool getDaytimeMode() const { return daytime_mode; }
     void setDaytimeMode(bool on) { daytime_mode = on; }
     float getLatitude() const { return latitude; }

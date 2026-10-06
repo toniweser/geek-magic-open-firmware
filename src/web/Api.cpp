@@ -28,6 +28,8 @@
 #include "display/ScreenManager.h"
 #include "display/screens/AnimationScreen.h"
 #include "daytime/DaytimeScheduler.h"
+#include "weather/WeatherLayer.h"
+#include "weather/WeatherService.h"
 #include "project_version.h"
 #include <AnimatedGIF.h>
 
@@ -732,6 +734,17 @@ static void sendScreenJson(Webserver* webserver, int httpCode, const char* error
     doc["startFile"] = configManager.getAnimationFile();
     doc["daytime"] = DaytimeScheduler::enabled();
     doc["demoSeconds"] = DaytimeScheduler::demoIntervalMs() / 1000;
+    {
+        JsonObject w = doc["weather"].to<JsonObject>();
+        const Weather::Condition c = WeatherLayer::current();
+        w["kind"] = Weather::name(c.kind);
+        w["level"] = c.level;
+        w["source"] = WeatherLayer::overrideActive() ? "override" : (configManager.getWeatherMode() ? "live" : "off");
+        w["code"] = WeatherService::data().wmoCode;
+        w["valid"] = WeatherService::data().valid;
+        w["temperature"] = WeatherService::data().tempCurrent;
+        w["lastStatus"] = WeatherService::lastStatus();
+    }
     doc["timeSynced"] = DaytimeScheduler::timeSynced();
     doc["phase"] = SunPhase::name(DaytimeScheduler::phase());
     const SunPhase::Times& sun = DaytimeScheduler::times();
@@ -790,7 +803,22 @@ void handleScreenSet(Webserver* webserver) {
         return;
     }
 
-    // {"demo": seconds} cycles through the four scenes for testing, 0 stops the demo
+    // {"weather": "rain", "level": 2} forces a condition for testing, "auto" returns to the forecast
+    if (doc["weather"].is<const char*>()) {
+        const char* w = doc["weather"];
+        Weather::Kind kind;
+        if (strcmp(w, "auto") == 0) {
+            WeatherLayer::setOverride(false);
+        } else if (Weather::parse(w, kind)) {
+            const int level = doc["level"] | 2;
+            WeatherLayer::setOverride(true, {kind, static_cast<uint8_t>(level < 1 ? 1 : (level > 3 ? 3 : level))});
+        } else {
+            sendScreenJson(webserver, HTTP_CODE_BAD_REQUEST, "unknown weather");
+            return;
+        }
+    }
+
+    // {"demo": seconds} cycles through scene and weather combinations for testing, 0 stops the demo
     if (doc["demo"].is<int>()) {
         DaytimeScheduler::setDemo(static_cast<unsigned long>(doc["demo"].as<int>()) * 1000UL);
     }

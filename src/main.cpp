@@ -31,6 +31,8 @@
 #include "display/ScreenManager.h"
 #include "display/screens/AnimationScreen.h"
 #include "daytime/DaytimeScheduler.h"
+#include "weather/WeatherService.h"
+#include "weather/WeatherLayer.h"
 #include "web/Webserver.h"
 #include "web/Api.h"
 #include "ntp/NTPClient.h"
@@ -187,7 +189,9 @@ void setup() {
     animationScreen.setFile(String("/gif/") + configManager.getAnimationFile());
     ScreenManager::registerScreen(&animationScreen);
     ScreenManager::begin(&animationScreen);
+    WeatherLayer::begin();
     DaytimeScheduler::begin(&animationScreen);
+    WeatherService::begin();
 
     // enable watchdog before going to loop()
     // 2 seconds should be way more than the main loop needs to do stuff
@@ -217,6 +221,7 @@ void loop() {
     DisplayManager::update();
     ScreenManager::loop();
     DaytimeScheduler::loop();
+    WeatherService::loop();
 
     static unsigned long last_free_heap_log = 0;
     static constexpr unsigned long FREE_HEAP_LOG_INTERVAL_MS = 10000UL;

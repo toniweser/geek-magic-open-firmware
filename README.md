@@ -11,6 +11,7 @@
 <p align="center"><sub>Morning · Day · Evening · Night, as rendered for the 240 × 240 display</sub></p>
 
 - Four scenes switch with the part of the day at your location: sunrise, day, dusk and night. Dawn, sunrise, sunset and dusk are computed on the device, no server involved.
+- The current weather shows up in the scene: a cloud bank drifts over the surface, rain falls, snow covers the sand and a snowman appears, fog brings a lighthouse, thunder flashes, and clear nights have stars. Fetched from Open-Meteo every 15 minutes, drawn as a few hundred pixels over the animation, no extra files.
 - Animations use PXA, a small run-length encoded format with a palette and raw frames. The ESP8266 has about 25 KB of free RAM, far too little for a GIF decoder, so this player needs about 6 KB instead.
 - Make your own animations with `tools/pxa.py`: it renders the bundled scenes, converts small GIFs and renders a `.pxa` back to GIF for checking.
 - Everything is configured in `config.json`: API token, location, timezone, which file plays in which phase. Switch scenes or files at runtime through `POST /api/v1/screen`.

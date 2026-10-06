@@ -5,6 +5,7 @@
   "lcd_rotation": 0,
   "animation_file": "day.pxa",
   "daytime_mode": true,
+  "weather_mode": true,
   "latitude": 49.4771,
   "longitude": 10.9887,
   "timezone": "CET-1CEST,M3.5.0,M10.5.0/3",

@@ -41,6 +41,7 @@ class DaytimeScheduler {
     static int _timesForDay;
     static unsigned long _nextCheckMs;
     static unsigned long _demoMs;
+    static uint8_t _demoStep;
 
     static void apply(SunPhase::Phase phase);
 };

@@ -2,6 +2,7 @@
 #include "display/screens/AnimationScreen.h"
 
 #include <Logger.h>
+#include <cmath>
 #include <cstring>
 
 #include "config/ConfigManager.h"
@@ -16,6 +17,34 @@ constexpr unsigned long MAX_LAG_MS = 500;
 constexpr uint8_t FLAG_RLE = 0x01;
 
 auto readU16(const uint8_t* p) -> uint16_t { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
+
+struct Rgb {
+    float r;
+    float g;
+    float b;
+};
+
+auto from565(uint16_t c) -> Rgb {
+    return {static_cast<float>((c >> 11) << 3), static_cast<float>(((c >> 5) & 0x3F) << 2),
+            static_cast<float>((c & 0x1F) << 3)};
+}
+
+auto to565(const Rgb& c) -> uint16_t {
+    const auto r = static_cast<uint16_t>(fminf(255.0F, fmaxf(0.0F, c.r)));
+    const auto g = static_cast<uint16_t>(fminf(255.0F, fmaxf(0.0F, c.g)));
+    const auto b = static_cast<uint16_t>(fminf(255.0F, fmaxf(0.0F, c.b)));
+    return static_cast<uint16_t>(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+}
+
+// Integer blend of two RGB565 colors, alpha 0..255 weighs `top`
+auto blend565(uint16_t base, uint16_t top, uint8_t alpha) -> uint16_t {
+    const uint32_t a = alpha;
+    const uint32_t ia = 255 - a;
+    const uint32_t r = (((base >> 11) & 0x1F) * ia + ((top >> 11) & 0x1F) * a) / 255;
+    const uint32_t g = (((base >> 5) & 0x3F) * ia + ((top >> 5) & 0x3F) * a) / 255;
+    const uint32_t b = ((base & 0x1F) * ia + (top & 0x1F) * a) / 255;
+    return static_cast<uint16_t>((r << 11) | (g << 5) | b);
+}
 
 }  // namespace
 
@@ -69,10 +98,11 @@ auto AnimationScreen::open() -> bool {
         return false;
     }
 
+    _paletteSrc.reset(new (std::nothrow) uint16_t[_colorCount]);
     _palette.reset(new (std::nothrow) uint16_t[_colorCount]);
     _frame.reset(new (std::nothrow) uint8_t[_frameBytes]);
-    _block.reset(new (std::nothrow) uint16_t[static_cast<size_t>(_width) * _scale * _scale]);
-    if (!_palette || !_frame || !_block) {
+    _line.reset(new (std::nothrow) uint16_t[static_cast<size_t>(_width) * _scale]);
+    if (!_paletteSrc || !_palette || !_frame || !_line || !_overlay.begin(_width, _height)) {
         _error = "out of memory";
         return false;
     }
@@ -84,8 +114,9 @@ auto AnimationScreen::open() -> bool {
         return false;
     }
     for (size_t i = 0; i < _colorCount; i++) {
-        _palette[i] = readU16(&palBuf[i * 2]);
+        _paletteSrc[i] = readU16(&palBuf[i * 2]);
     }
+    applyMood(WeatherLayer::moodFor(WeatherLayer::current().kind));
 
     _dataOffset = HEADER_SIZE + palBytes;
     _frameIntervalMs = 1000UL / _fps;
@@ -107,9 +138,32 @@ auto AnimationScreen::close() -> void {
         _file.close();
     }
     _frame.reset();
-    _block.reset();
+    _line.reset();
     _palette.reset();
+    _paletteSrc.reset();
+    _overlay.release();
     _ok = false;
+}
+
+auto AnimationScreen::applyMood(const Mood& m) -> void {
+    for (size_t i = 0; i < _colorCount; i++) {
+        Rgb c = from565(_paletteSrc[i]);
+        const float gray = c.r * 0.3F + c.g * 0.59F + c.b * 0.11F;
+        c.r = (c.r * (1 - m.desat) + gray * m.desat) * m.dim;
+        c.g = (c.g * (1 - m.desat) + gray * m.desat) * m.dim;
+        c.b = (c.b * (1 - m.desat) + gray * m.desat) * m.dim;
+        if (m.tint > 0) {
+            c.r = c.r * (1 - m.tint) + m.tintR * m.tint;
+            c.g = c.g * (1 - m.tint) + m.tintG * m.tint;
+            c.b = c.b * (1 - m.tint) + m.tintB * m.tint;
+        }
+        if (m.flash > 0) {
+            c.r += (255 - c.r) * m.flash;
+            c.g += (255 - c.g) * m.flash;
+            c.b += (255 - c.b) * m.flash;
+        }
+        _palette[i] = to565(c);
+    }
 }
 
 auto AnimationScreen::readByte() -> int {
@@ -157,12 +211,11 @@ auto AnimationScreen::readFrame() -> bool {
 }
 
 auto AnimationScreen::drawFrame(Arduino_GFX* gfx) -> void {
-    const size_t outW = static_cast<size_t>(_width) * _scale;
-    uint16_t* line0 = _block.get();
+    const auto outW = static_cast<int16_t>(_width * _scale);
+    uint16_t* line = _line.get();
 
     for (uint16_t y = 0; y < _height; y++) {
-        // expand one source row into the first output line
-        uint16_t* dst = line0;
+        uint16_t* dst = line;
         for (uint16_t x = 0; x < _width; x++) {
             const size_t px = static_cast<size_t>(y) * _width + x;
             uint8_t idx = 0;
@@ -172,17 +225,20 @@ auto AnimationScreen::drawFrame(Arduino_GFX* gfx) -> void {
             } else {
                 idx = _frame[px];
             }
-            const uint16_t color = (idx < _colorCount) ? _palette[idx] : 0;
+            uint16_t color = (idx < _colorCount) ? _palette[idx] : 0;
+            const uint8_t ov = _overlay.at(px);
+            if (ov != 0) {
+                const OverlayBuffer::Entry& e = _overlay.entry(ov);
+                color = (e.alpha == 255) ? e.color : blend565(color, e.color, e.alpha);
+            }
             for (uint8_t s = 0; s < _scale; s++) {
                 *dst++ = color;
             }
         }
-        // replicate it `scale` times, then push the block in one go
-        for (uint8_t s = 1; s < _scale; s++) {
-            memcpy(line0 + s * outW, line0, outW * sizeof(uint16_t));
+        const auto rowY = static_cast<int16_t>(_y0 + y * _scale);
+        for (uint8_t s = 0; s < _scale; s++) {
+            gfx->draw16bitRGBBitmap(_x0, static_cast<int16_t>(rowY + s), line, outW, 1);
         }
-        gfx->draw16bitRGBBitmap(_x0, static_cast<int16_t>(_y0 + y * _scale), line0, static_cast<int16_t>(outW),
-                                _scale);
     }
 }
 
@@ -219,6 +275,12 @@ auto AnimationScreen::update(Arduino_GFX* gfx, unsigned long nowMs) -> void {
         close();
         drawError(gfx);
         return;
+    }
+
+    WeatherLayer::frame(_overlay, _night);
+    Mood mood;
+    if (WeatherLayer::takeMoodChange(mood)) {
+        applyMood(mood);
     }
     drawFrame(gfx);
 

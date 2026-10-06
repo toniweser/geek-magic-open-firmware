@@ -3,10 +3,12 @@
 
 #include <LittleFS.h>
 #include <Logger.h>
+#include <array>
 #include <ctime>
 
 #include "config/ConfigManager.h"
 #include "display/ScreenManager.h"
+#include "weather/WeatherLayer.h"
 
 extern ConfigManager configManager;
 
@@ -37,6 +39,7 @@ SunPhase::Times DaytimeScheduler::_times{};
 int DaytimeScheduler::_timesForDay = -1;
 unsigned long DaytimeScheduler::_nextCheckMs = 0;
 unsigned long DaytimeScheduler::_demoMs = 0;
+uint8_t DaytimeScheduler::_demoStep = 0;
 
 auto DaytimeScheduler::begin(AnimationScreen* screen) -> void {
     _screen = screen;
@@ -92,12 +95,17 @@ auto DaytimeScheduler::apply(SunPhase::Phase phase) -> void {
     }
     _phase = phase;
     _applied = true;
+    _screen->setNight(phase == SunPhase::Phase::Night);
 }
 
 auto DaytimeScheduler::setDemo(unsigned long ms) -> void {
     _demoMs = ms;
+    _demoStep = 0;
     _applied = false;
     _nextCheckMs = 0;
+    if (ms == 0) {
+        WeatherLayer::setOverride(false);
+    }
     Logger::info(ms != 0 ? "Demo cycle on" : "Demo cycle off", TAG);
 }
 
@@ -109,9 +117,28 @@ auto DaytimeScheduler::loop() -> void {
     }
 
     if (_demoMs != 0) {
+        // scene and weather combinations that show every prop at least once
+        struct Combo {
+            SunPhase::Phase phase;
+            Weather::Kind kind;
+            uint8_t level;
+        };
+        static constexpr std::array<Combo, 8> DEMO = {{
+            {SunPhase::Phase::Morning, Weather::Kind::Clear, 1},
+            {SunPhase::Phase::Day, Weather::Kind::Cloudy, 2},
+            {SunPhase::Phase::Evening, Weather::Kind::Rain, 2},
+            {SunPhase::Phase::Night, Weather::Kind::Clear, 1},
+            {SunPhase::Phase::Day, Weather::Kind::Fog, 2},
+            {SunPhase::Phase::Morning, Weather::Kind::Snow, 2},
+            {SunPhase::Phase::Night, Weather::Kind::Thunder, 3},
+            {SunPhase::Phase::Evening, Weather::Kind::Snow, 1},
+        }};
         _nextCheckMs = millis() + _demoMs;
-        const auto next = _applied ? static_cast<SunPhase::Phase>((static_cast<uint8_t>(_phase) + 1) % 4) : _phase;
-        apply(next);
+        const Combo& c = DEMO.at(_demoStep);
+        _demoStep = static_cast<uint8_t>((_demoStep + 1) % DEMO.size());
+        WeatherLayer::setOverride(true, {c.kind, c.level});
+        _applied = false;  // force the file swap even when the phase repeats
+        apply(c.phase);
         return;
     }
 

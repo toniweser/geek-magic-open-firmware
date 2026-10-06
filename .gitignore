@@ -47,3 +47,4 @@ config.json
 
 # IDE
 .idea/
+.DS_Store

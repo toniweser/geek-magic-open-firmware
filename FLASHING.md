@@ -30,6 +30,7 @@ it holds the token. Every key is optional; a missing key takes the default.
 | `wifi_ssid`, `wifi_password` | empty | Optional. Leave empty and configure WiFi in the web UI later, or fill in to skip that step. Moved into secure storage on first boot. |
 | `lcd_rotation` | `0` | Display rotation 0–7 (4–7 mirrored). `0` is right for the SmallTV-Ultra. |
 | `daytime_mode` | `true` | `true` follows the sun with the four scene files, `false` plays `animation_file` only. |
+| `weather_mode` | `true` | Fetch the current weather from Open-Meteo every 15 minutes and show it in the scene: clouds, rain, snow with a snowman, fog with a lighthouse, a thunder flash, stars on clear nights. |
 | `latitude`, `longitude` | Fürth, Germany | Your location in decimal degrees, used for sunrise and sunset. |
 | `timezone` | `CET-1CEST,M3.5.0,M10.5.0/3` | POSIX TZ string for local time. Central Europe is the default; look up other zones in the [TZ string list](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv). |
 | `scene_morning`, `scene_day`, `scene_evening`, `scene_night` | `morning.pxa` … `night.pxa` | File in `data/gif/` for each part of the day. Morning runs from civil dawn to two hours after sunrise, evening from two hours before sunset to civil dusk, night in between. |
@@ -111,6 +112,23 @@ curl -H "Authorization: Bearer <token>" -F "file=@my.pxa" http://<device-ip>/api
 curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
   -d '{"name":"animation","file":"my.pxa","persist":true}' http://<device-ip>/api/v1/screen
 ```
+
+## Testing scenes and weather
+
+Force a weather condition (`clear`, `cloudy`, `fog`, `rain`, `snow`, `thunder`,
+level 1–3) or cycle through scene and weather combinations every few seconds:
+
+```bash
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","weather":"snow","level":3}' http://<device-ip>/api/v1/screen
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","demo":7}' http://<device-ip>/api/v1/screen      # "demo": 0 stops it
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","weather":"auto"}' http://<device-ip>/api/v1/screen  # back to the forecast
+```
+
+Neither setting survives a reboot. `GET /api/v1/screen` shows the phase, the
+sun times and the weather in effect.
 
 Keep an eye on `freeBytes` in `GET /api/v1/gif`: a 60x60 animation costs
 3.6 KB per frame, the filesystem has about 1.3 MB for animations.
