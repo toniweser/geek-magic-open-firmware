@@ -30,6 +30,7 @@ it holds the token. Every key is optional; a missing key takes the default.
 | `wifi_ssid`, `wifi_password` | empty | Optional. Leave empty and configure WiFi in the web UI later, or fill in to skip that step. Moved into secure storage on first boot. |
 | `lcd_rotation` | `0` | Display rotation 0–7 (4–7 mirrored). `0` is right for the SmallTV-Ultra. |
 | `daytime_mode` | `true` | `true` follows the sun with the four scene files, `false` plays `animation_file` only. |
+| `display_saturation`, `display_contrast` | `1.35`, `1.15` | Color profile for the panel, which washes colors out compared to a monitor. 1.0 leaves them as rendered; tune live with `POST /api/v1/screen {"name":"animation","saturation":1.3,"contrast":1.1,"persist":true}`. |
 | `weather_mode` | `true` | Fetch the current weather from Open-Meteo every 15 minutes and show it in the scene: clouds, rain, snow with a snowman, fog with a lighthouse, a thunder flash, stars on clear nights. |
 | `latitude`, `longitude` | Fürth, Germany | Your location in decimal degrees, used for sunrise and sunset. |
 | `timezone` | `CET-1CEST,M3.5.0,M10.5.0/3` | POSIX TZ string for local time. Central Europe is the default; look up other zones in the [TZ string list](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv). |

@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "config/ConfigManager.h"
+#include "display/ColorProfile.h"
 #include "display/Palette.h"
 
 namespace {
@@ -162,6 +163,7 @@ auto AnimationScreen::applyMood(const Mood& m) -> void {
             c.g += (255 - c.g) * m.flash;
             c.b += (255 - c.b) * m.flash;
         }
+        ColorProfile::apply(c.r, c.g, c.b);
         _palette[i] = to565(c);
     }
 }

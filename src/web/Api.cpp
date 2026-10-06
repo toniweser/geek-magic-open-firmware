@@ -30,6 +30,7 @@
 #include "daytime/DaytimeScheduler.h"
 #include "weather/WeatherLayer.h"
 #include "weather/WeatherService.h"
+#include "display/ColorProfile.h"
 #include "project_version.h"
 #include <AnimatedGIF.h>
 
@@ -734,6 +735,8 @@ static void sendScreenJson(Webserver* webserver, int httpCode, const char* error
     doc["startFile"] = configManager.getAnimationFile();
     doc["daytime"] = DaytimeScheduler::enabled();
     doc["demoSeconds"] = DaytimeScheduler::demoIntervalMs() / 1000;
+    doc["saturation"] = ColorProfile::saturation();
+    doc["contrast"] = ColorProfile::contrast();
     {
         JsonObject w = doc["weather"].to<JsonObject>();
         const Weather::Condition c = WeatherLayer::current();
@@ -801,6 +804,17 @@ void handleScreenSet(Webserver* webserver) {
     if (target == nullptr) {
         sendScreenJson(webserver, HTTP_CODE_NOT_FOUND, "unknown screen");
         return;
+    }
+
+    // {"saturation": 1.3, "contrast": 1.1} tunes the color profile; with "persist" it is stored
+    if (doc["saturation"].is<float>() || doc["contrast"].is<float>()) {
+        const float sat = doc["saturation"] | ColorProfile::saturation();
+        const float con = doc["contrast"] | ColorProfile::contrast();
+        ColorProfile::set(sat, con);
+        WeatherLayer::requestMoodRefresh();
+        if (doc["persist"] | false) {
+            configManager.setDisplayProfile(ColorProfile::saturation(), ColorProfile::contrast());
+        }
     }
 
     // {"weather": "rain", "level": 2} forces a condition for testing, "auto" returns to the forecast

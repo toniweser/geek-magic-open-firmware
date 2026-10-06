@@ -68,6 +68,8 @@ auto ConfigManager::load() -> bool {
     String ntp_server_cfg = doc["ntp_server"] | "";
     this->daytime_mode = doc["daytime_mode"] | daytime_mode;
     this->weather_mode = doc["weather_mode"] | weather_mode;
+    this->display_saturation = doc["display_saturation"] | display_saturation;
+    this->display_contrast = doc["display_contrast"] | display_contrast;
     this->latitude = doc["latitude"] | latitude;
     this->longitude = doc["longitude"] | longitude;
     String timezone_cfg = doc["timezone"] | "";
@@ -223,6 +225,8 @@ auto ConfigManager::save() -> bool {
     doc["animation_file"] = this->animation_file.c_str();
     doc["daytime_mode"] = this->daytime_mode;
     doc["weather_mode"] = this->weather_mode;
+    doc["display_saturation"] = this->display_saturation;
+    doc["display_contrast"] = this->display_contrast;
     doc["latitude"] = this->latitude;
     doc["longitude"] = this->longitude;
     doc["timezone"] = this->timezone.c_str();

@@ -36,6 +36,9 @@ class WeatherLayer {
     /** Fill the overlay for the next frame and advance particles. `night` draws stars when clear. */
     static void frame(OverlayBuffer& overlay, bool night);
 
+    /** Rebuild the palette on the next frame, e.g. after the color profile changed. */
+    static void requestMoodRefresh() { _moodDirty = true; }
+
     /** True once after the mood changed; the caller re-applies it to the palette. */
     static bool takeMoodChange(Mood& out);
     static Mood moodFor(Weather::Kind kind);

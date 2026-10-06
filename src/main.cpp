@@ -33,6 +33,7 @@
 #include "daytime/DaytimeScheduler.h"
 #include "weather/WeatherService.h"
 #include "weather/WeatherLayer.h"
+#include "display/ColorProfile.h"
 #include "web/Webserver.h"
 #include "web/Api.h"
 #include "ntp/NTPClient.h"
@@ -189,6 +190,7 @@ void setup() {
     animationScreen.setFile(String("/gif/") + configManager.getAnimationFile());
     ScreenManager::registerScreen(&animationScreen);
     ScreenManager::begin(&animationScreen);
+    ColorProfile::set(configManager.getDisplaySaturation(), configManager.getDisplayContrast());
     WeatherLayer::begin();
     DaytimeScheduler::begin(&animationScreen);
     WeatherService::begin();

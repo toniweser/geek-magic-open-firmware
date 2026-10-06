@@ -75,6 +75,14 @@ class ConfigManager {
     std::string scene_night = "night.pxa";
 
     bool weather_mode = true;  // fetch Open-Meteo and draw the weather layer
+    float display_saturation = 1.35F;  // color profile for the panel, 1.0 = as rendered
+    float display_contrast = 1.15F;
+    float getDisplaySaturation() const { return display_saturation; }
+    float getDisplayContrast() const { return display_contrast; }
+    void setDisplayProfile(float saturation, float contrast) {
+        display_saturation = saturation;
+        display_contrast = contrast;
+    }
     bool getWeatherMode() const { return weather_mode; }
     void setWeatherMode(bool on) { weather_mode = on; }
     bool getDaytimeMode() const { return daytime_mode; }

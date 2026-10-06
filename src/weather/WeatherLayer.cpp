@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "config/ConfigManager.h"
+#include "display/ColorProfile.h"
 #include "weather/WeatherService.h"
 
 extern ConfigManager configManager;
@@ -13,7 +14,10 @@ namespace {
 constexpr float TAU = 6.2831853F;
 
 auto rgb(uint8_t r, uint8_t g, uint8_t b) -> uint16_t {
-    return static_cast<uint16_t>(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+    float fr = r, fg = g, fb = b;
+    ColorProfile::apply(fr, fg, fb);
+    return static_cast<uint16_t>(((static_cast<uint16_t>(fr) & 0xF8) << 8) | ((static_cast<uint16_t>(fg) & 0xFC) << 3) |
+                                 (static_cast<uint16_t>(fb) >> 3));
 }
 
 auto frand(float lo, float hi) -> float { return lo + (hi - lo) * static_cast<float>(random(0, 10000)) / 10000.0F; }
