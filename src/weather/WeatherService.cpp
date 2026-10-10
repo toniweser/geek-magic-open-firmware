@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "config/ConfigManager.h"
+#include "weather/Messenger.h"
 #include "wireless/WiFiManager.h"
 
 extern ConfigManager configManager;
@@ -35,7 +36,7 @@ auto WeatherService::loop() -> void {
     if (millis() < _nextAttemptMs) {
         return;
     }
-    if (!WiFiManager::isConnected() || !configManager.getWeatherMode()) {
+    if (!WiFiManager::isConnected() || !(configManager.getWeatherMode() || Messenger::enabled())) {
         _nextAttemptMs = millis() + RETRY_INTERVAL_MS;
         return;
     }
@@ -56,6 +57,7 @@ auto WeatherService::fetchNow() -> bool {
     HTTPClient http;
     http.setTimeout(HTTP_TIMEOUT_MS);
     http.setReuse(false);
+    http.useHTTP10(true);  // no chunked encoding, so the JSON can be parsed straight from the stream
 
     if (!http.begin(client, url.data())) {
         _lastStatus = "http.begin failed";
@@ -78,7 +80,7 @@ auto WeatherService::fetchNow() -> bool {
     filter["current"]["is_day"] = true;
 
     JsonDocument doc;
-    const DeserializationError err = deserializeJson(doc, http.getString(), DeserializationOption::Filter(filter));
+    const DeserializationError err = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
     http.end();
 
     if (err) {

@@ -25,7 +25,7 @@
 enum LogLevel { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 
 static constexpr LogLevel LOG_MIN_LEVEL = LOG_WARN;
-static constexpr size_t LOG_BUFFER_MAX_ENTRIES = 20;
+static constexpr size_t LOG_BUFFER_MAX_ENTRIES = 10;  // 10 x 96 B; the ESP8266 heap is tight
 static constexpr size_t LOG_ENTRY_MAX_LEN = 96;
 
 class Logger {

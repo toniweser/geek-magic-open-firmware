@@ -33,6 +33,7 @@
 #include "daytime/DaytimeScheduler.h"
 #include "weather/WeatherService.h"
 #include "weather/WeatherLayer.h"
+#include "weather/Messenger.h"
 #include "display/ColorProfile.h"
 #include "web/Webserver.h"
 #include "web/Api.h"
@@ -192,6 +193,7 @@ void setup() {
     ScreenManager::begin(&animationScreen);
     ColorProfile::set(configManager.getDisplaySaturation(), configManager.getDisplayContrast());
     WeatherLayer::begin();
+    Messenger::begin();
     DaytimeScheduler::begin(&animationScreen);
     WeatherService::begin();
 

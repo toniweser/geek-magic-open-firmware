@@ -21,6 +21,7 @@
 #include <Logger.h>
 #include <ArduinoJson.h>
 #include <Updater.h>
+#include <cmath>
 
 #include "web/Webserver.h"
 #include "web/Api.h"
@@ -28,6 +29,7 @@
 #include "display/ScreenManager.h"
 #include "display/screens/AnimationScreen.h"
 #include "daytime/DaytimeScheduler.h"
+#include "weather/Messenger.h"
 #include "weather/WeatherLayer.h"
 #include "weather/WeatherService.h"
 #include "display/ColorProfile.h"
@@ -748,6 +750,25 @@ static void sendScreenJson(Webserver* webserver, int httpCode, const char* error
         w["temperature"] = WeatherService::data().tempCurrent;
         w["lastStatus"] = WeatherService::lastStatus();
     }
+    {
+        JsonObject m = doc["messenger"].to<JsonObject>();
+        m["enabled"] = Messenger::enabled();
+        m["mode"] = Messenger::modeName();
+        m["current"] = Messenger::currentName();
+        m["visible"] = Messenger::visible();
+        m["source"] = Messenger::overrideActive() ? "override" : "live";
+        const float shown = Messenger::shownTemperature();
+        if (!std::isnan(shown)) {
+            m["temperature"] = shown;
+        }
+        std::array<Messenger::Kind, Messenger::DAILY_COUNT> trio{};
+        if (Messenger::today(trio)) {  // the three figures of this day, 4:00 to 4:00 local time
+            JsonArray t = m["today"].to<JsonArray>();
+            for (const Messenger::Kind k : trio) {
+                t.add(Messenger::kindName(k));
+            }
+        }
+    }
     doc["timeSynced"] = DaytimeScheduler::timeSynced();
     doc["phase"] = SunPhase::name(DaytimeScheduler::phase());
     const SunPhase::Times& sun = DaytimeScheduler::times();
@@ -830,6 +851,38 @@ void handleScreenSet(Webserver* webserver) {
             sendScreenJson(webserver, HTTP_CODE_BAD_REQUEST, "unknown weather");
             return;
         }
+    }
+
+    // {"messengers": true|false} switches the temperature figures (stored with "persist");
+    // {"messenger": "random"|"demo"|"crab"...} picks random turns, the demo sequence or one figure;
+    // {"messengerNow": true} starts the next pass right away; {"messengerTemp": -3.5} forces the value, "auto" returns to the forecast
+    if (doc["messengers"].is<bool>()) {
+        Messenger::setEnabled(doc["messengers"].as<bool>(), doc["persist"] | false);
+    }
+    if (doc["messenger"].is<const char*>()) {
+        const char* m = doc["messenger"];
+        Messenger::Kind kind;
+        if (strcmp(m, "random") == 0) {
+            Messenger::setMode(Messenger::Mode::Random);
+        } else if (strcmp(m, "demo") == 0) {
+            Messenger::setMode(Messenger::Mode::Demo);
+        } else if (Messenger::parseKind(m, kind)) {
+            Messenger::setMode(Messenger::Mode::Fixed, kind);
+        } else {
+            sendScreenJson(webserver, HTTP_CODE_BAD_REQUEST, "unknown messenger");
+            return;
+        }
+    }
+    if (doc["messengerNow"] | false) {
+        Messenger::triggerNow();
+    }
+    if (doc["messengerReroll"] | false) {  // a fresh trio for today, for testing
+        Messenger::reroll();
+    }
+    if (doc["messengerTemp"].is<float>()) {
+        Messenger::setOverride(doc["messengerTemp"].as<float>());
+    } else if (doc["messengerTemp"].is<const char*>()) {
+        Messenger::setOverride(NAN);
     }
 
     // {"demo": seconds} cycles through scene and weather combinations for testing, 0 stops the demo

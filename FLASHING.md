@@ -32,6 +32,7 @@ it holds the token. Every key is optional; a missing key takes the default.
 | `daytime_mode` | `true` | `true` follows the sun with the four scene files, `false` plays `animation_file` only. |
 | `display_saturation`, `display_contrast` | `1.35`, `1.15` | Color profile for the panel, which washes colors out compared to a monitor. 1.0 leaves them as rendered; tune live with `POST /api/v1/screen {"name":"animation","saturation":1.3,"contrast":1.1,"persist":true}`. |
 | `weather_mode` | `true` | Fetch the current weather from Open-Meteo every 15 minutes and show it in the scene: clouds, rain, snow with a snowman, fog with a lighthouse, a thunder flash, stars on clear nights. |
+| `messenger_mode` | `true` | Figures carry the current outdoor temperature (from the same Open-Meteo fetch) through the scene, taking turns with at most four seconds between passes: a crab with a sign, a submarine, a puffer fish, a treasure chest, a message in a bottle, an octopus writing with ink, a fishing hook from a boat, a sunken neon sign and a crab parade. Each day (4:00 to 4:00 local time) three of the nine are drawn from the date, so the cast changes daily and a reboot keeps it. Switch them live with `POST /api/v1/screen {"name":"animation","messengers":false}`, add `"persist":true` to store it. |
 | `latitude`, `longitude` | Fürth, Germany | Your location in decimal degrees, used for sunrise and sunset. |
 | `timezone` | `CET-1CEST,M3.5.0,M10.5.0/3` | POSIX TZ string for local time. Central Europe is the default; look up other zones in the [TZ string list](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv). |
 | `scene_morning`, `scene_day`, `scene_evening`, `scene_night` | `morning.pxa` … `night.pxa` | File in `data/gif/` for each part of the day. Morning runs from civil dawn to two hours after sunrise, evening from two hours before sunset to civil dusk, night in between. |
@@ -126,10 +127,22 @@ curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/js
   -d '{"name":"animation","demo":7}' http://<device-ip>/api/v1/screen      # "demo": 0 stops it
 curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
   -d '{"name":"animation","weather":"auto"}' http://<device-ip>/api/v1/screen  # back to the forecast
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","messenger":"demo","messengerNow":true}' http://<device-ip>/api/v1/screen  # all nine figures in order
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","messenger":"octo","messengerTemp":-3,"messengerNow":true}' http://<device-ip>/api/v1/screen  # one figure, -3° on display
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","messenger":"random","messengerTemp":"auto"}' http://<device-ip>/api/v1/screen  # back to normal; "messengers":false hides them
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+  -d '{"name":"animation","messengerReroll":true}' http://<device-ip>/api/v1/screen  # draw a new trio for today
 ```
 
-Neither setting survives a reboot. `GET /api/v1/screen` shows the phase, the
-sun times and the weather in effect.
+None of these settings survive a reboot unless `"persist":true` is sent with
+`"messengers"`. `GET /api/v1/screen` shows the phase, the sun times, the weather
+in effect and a `messenger` object (`enabled`, `mode`, `current`, `visible`,
+`source`, `today` with the three figures of the day, and `temperature` while
+a figure is on screen). Figure names:
+`crab`, `sub`, `puffer`, `chest`, `bottle`, `octo`, `hook`, `neon`, `parade`.
 
 Keep an eye on `freeBytes` in `GET /api/v1/gif`: a 60x60 animation costs
 3.6 KB per frame, the filesystem has about 1.3 MB for animations.

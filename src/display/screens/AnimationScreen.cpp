@@ -8,6 +8,7 @@
 #include "config/ConfigManager.h"
 #include "display/ColorProfile.h"
 #include "display/Palette.h"
+#include "weather/Messenger.h"
 
 namespace {
 
@@ -279,7 +280,11 @@ auto AnimationScreen::update(Arduino_GFX* gfx, unsigned long nowMs) -> void {
         return;
     }
 
+    _overlay.clear();
+    const bool snow = WeatherLayer::current().kind == Weather::Kind::Snow;
+    Messenger::advance(_overlay, _night, snow);
     WeatherLayer::frame(_overlay, _night);
+    Messenger::draw(_overlay, _night, snow);
     Mood mood;
     if (WeatherLayer::takeMoodChange(mood)) {
         applyMood(mood);

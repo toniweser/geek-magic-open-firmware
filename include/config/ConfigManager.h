@@ -74,7 +74,8 @@ class ConfigManager {
     std::string scene_evening = "evening.pxa";
     std::string scene_night = "night.pxa";
 
-    bool weather_mode = true;  // fetch Open-Meteo and draw the weather layer
+    bool weather_mode = true;  // draw the weather layer (the Open-Meteo fetch also runs for the messengers)
+    bool messenger_mode = true;  // figures carry the outdoor temperature through the scene
     float display_saturation = 1.35F;  // color profile for the panel, 1.0 = as rendered
     float display_contrast = 1.15F;
     float getDisplaySaturation() const { return display_saturation; }
@@ -85,6 +86,8 @@ class ConfigManager {
     }
     bool getWeatherMode() const { return weather_mode; }
     void setWeatherMode(bool on) { weather_mode = on; }
+    bool getMessengerMode() const { return messenger_mode; }
+    void setMessengerMode(bool on) { messenger_mode = on; }
     bool getDaytimeMode() const { return daytime_mode; }
     void setDaytimeMode(bool on) { daytime_mode = on; }
     float getLatitude() const { return latitude; }

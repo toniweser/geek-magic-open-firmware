@@ -33,7 +33,7 @@ class WeatherLayer {
     static void setOverride(bool on, Weather::Condition condition = {});
     static bool overrideActive();
 
-    /** Fill the overlay for the next frame and advance particles. `night` draws stars when clear. */
+    /** Draw the props into the (already cleared) overlay and advance particles. `night` draws stars when clear. */
     static void frame(OverlayBuffer& overlay, bool night);
 
     /** Rebuild the palette on the next frame, e.g. after the color profile changed. */
@@ -50,17 +50,18 @@ class WeatherLayer {
         uint8_t w;
         uint8_t y;
     };
+    // positions and speeds in 1/64 pixel, phase in 1/40 rad: fixed point keeps the arrays small
     struct Drop {
-        float x;
-        float y;
-        float v;
+        int16_t x;
+        int16_t y;
+        uint8_t v;
         uint8_t len;
     };
     struct Flake {
-        float x;
-        float y;
-        float v;
-        float ph;
+        int16_t x;
+        int16_t y;
+        uint8_t v;
+        uint8_t ph;
         bool big;
     };
     struct Star {

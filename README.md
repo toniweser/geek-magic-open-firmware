@@ -18,6 +18,7 @@
 
 - Four scenes switch with the part of the day at your location: sunrise, day, dusk and night. Dawn, sunrise, sunset and dusk are computed on the device, no server involved.
 - The current weather shows up in the scene: a cloud bank drifts over the surface, rain falls, snow covers the sand and a snowman appears, fog brings a lighthouse, thunder flashes, and clear nights have stars. Fetched from Open-Meteo every 15 minutes, drawn as a few hundred pixels over the animation, no extra files.
+- The current outdoor temperature travels through the scene on a sign carried by a crab, on the hull of a submarine, on a puffer fish's belly, on a gold plate from a treasure chest, in a message in a bottle, written in octopus ink, as bait on a fishing hook, on a sunken neon sign or held up by a crab parade. Three of them are on duty each day, drawn anew every morning at four, and take turns, never more than a few seconds out of view.
 - Animations use PXA, a small run-length encoded format with a palette and raw frames. The ESP8266 has about 25 KB of free RAM, far too little for a GIF decoder, so this player needs about 6 KB instead.
 - Make your own animations with `tools/pxa.py`: it renders the bundled scenes, converts small GIFs and renders a `.pxa` back to GIF for checking.
 - Everything is configured in `config.json`: API token, location, timezone, which file plays in which phase. Switch scenes or files at runtime through `POST /api/v1/screen`.

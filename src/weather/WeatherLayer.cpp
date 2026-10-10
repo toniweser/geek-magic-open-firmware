@@ -172,8 +172,8 @@ auto WeatherLayer::rain(OverlayBuffer& ov, uint8_t level, int n, int cloudBottom
     static constexpr std::array<uint8_t, 4> WANT = {0, 10, 22, 40};
     const uint8_t want = WANT.at(level);
     while (_dropCount < want) {
-        _drops.at(_dropCount++) = {frand(0, static_cast<float>(n)), frand(static_cast<float>(cloudBottom), static_cast<float>(n - 8)),
-                                   frand(0.8F, 1.3F), static_cast<uint8_t>(irand(2, 4))};
+        _drops.at(_dropCount++) = {static_cast<int16_t>(irand(0, n * 64)), static_cast<int16_t>(irand(cloudBottom * 64, (n - 8) * 64)),
+                                   static_cast<uint8_t>(irand(51, 83)), static_cast<uint8_t>(irand(2, 4))};
     }
     if (_dropCount > want) {
         _dropCount = want;
@@ -182,16 +182,16 @@ auto WeatherLayer::rain(OverlayBuffer& ov, uint8_t level, int n, int cloudBottom
     const uint8_t tail = ov.color(rgb(170, 195, 235));
     for (uint8_t i = 0; i < _dropCount; i++) {
         Drop& d = _drops.at(i);
-        d.y += d.v;
-        d.x += 0.075F;
-        if (d.y > n - 6) {
-            d.y = static_cast<float>(cloudBottom) - frand(0, 6);
-            d.x = frand(0, static_cast<float>(n));
+        d.y = static_cast<int16_t>(d.y + d.v);
+        d.x = static_cast<int16_t>(d.x + 5);  // 0.078 px per frame sideways
+        if (d.y > (n - 6) * 64) {
+            d.y = static_cast<int16_t>(cloudBottom * 64 - irand(0, 6 * 64));
+            d.x = static_cast<int16_t>(irand(0, n * 64));
         }
         for (uint8_t k = 0; k < d.len; k++) {
-            const int yy = static_cast<int>(lroundf(d.y)) - k;
+            const int yy = (d.y + 32) / 64 - k;
             if (yy >= cloudBottom) {
-                ov.set(static_cast<int>(lroundf(d.x)), yy, k == 0 ? head : tail);
+                ov.set((d.x + 32) / 64, yy, k == 0 ? head : tail);
             }
         }
     }
@@ -201,8 +201,8 @@ auto WeatherLayer::snow(OverlayBuffer& ov, uint8_t level, int n, int cloudBottom
     static constexpr std::array<uint8_t, 4> WANT = {0, 8, 16, 28};
     const uint8_t want = WANT.at(level);
     while (_flakeCount < want) {
-        _flakes.at(_flakeCount++) = {frand(0, static_cast<float>(n)), frand(static_cast<float>(cloudBottom), static_cast<float>(n - 8)),
-                                     frand(0.12F, 0.25F), frand(0, 6), irand(0, 9) < 3};
+        _flakes.at(_flakeCount++) = {static_cast<int16_t>(irand(0, n * 64)), static_cast<int16_t>(irand(cloudBottom * 64, (n - 8) * 64)),
+                                     static_cast<uint8_t>(irand(8, 16)), static_cast<uint8_t>(irand(0, 240)), irand(0, 9) < 3};
     }
     if (_flakeCount > want) {
         _flakeCount = want;
@@ -211,14 +211,14 @@ auto WeatherLayer::snow(OverlayBuffer& ov, uint8_t level, int n, int cloudBottom
     const uint8_t soft = ov.color(rgb(225, 235, 250));
     for (uint8_t i = 0; i < _flakeCount; i++) {
         Flake& f = _flakes.at(i);
-        f.y += f.v;
-        const int x = static_cast<int>(lroundf(f.x + sinf(static_cast<float>(_t) * 0.04F + f.ph) * 1.5F));
-        if (f.y > n - 6) {
-            f.y = static_cast<float>(cloudBottom) - frand(0, 3);
-            f.x = frand(0, static_cast<float>(n));
+        f.y = static_cast<int16_t>(f.y + f.v);
+        const int x = static_cast<int>(lroundf(f.x / 64.0F + sinf(static_cast<float>(_t) * 0.04F + f.ph / 40.0F) * 1.5F));
+        if (f.y > (n - 6) * 64) {
+            f.y = static_cast<int16_t>(cloudBottom * 64 - irand(0, 3 * 64));
+            f.x = static_cast<int16_t>(irand(0, n * 64));
         }
-        if (f.y >= cloudBottom) {
-            const int y = static_cast<int>(lroundf(f.y));
+        if (f.y >= cloudBottom * 64) {
+            const int y = (f.y + 32) / 64;
             ov.set(x, y, white);
             if (f.big) {
                 ov.set(x + 1, y, soft);
@@ -356,7 +356,6 @@ auto WeatherLayer::thunder(uint8_t level) -> void {
 
 auto WeatherLayer::frame(OverlayBuffer& ov, bool night) -> void {
     _t++;
-    ov.clear();
     const Weather::Condition c = current();
     if (c.kind != _lastKind) {
         _lastKind = c.kind;
@@ -389,8 +388,8 @@ auto WeatherLayer::frame(OverlayBuffer& ov, bool night) -> void {
         case Weather::Kind::Snow:
             clouds(ov, c.kind, n);
             snowGround(ov, n);
-            snowman(ov, 48, n - 6);
             snow(ov, c.level, n, 7);
+            snowman(ov, 48, n - 6);  // last: with a messenger on screen it is the snowman that loses details
             break;
         case Weather::Kind::Thunder:
             thunder(c.level);
